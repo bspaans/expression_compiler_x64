@@ -1,4 +1,4 @@
-expression_compiler_x86
+Expression Compiler x64
 =======================
 
-Compiler for simple expressions into x86 as a POC
+Compiles simple mathematical expressions into x64

@@ -175,38 +175,39 @@ test s = (runInstr . compileExpr <$> p) == (evalExpr <$> p)
 
 -- | Compiling to X86
 --
-data Register = Rax | Rbx | Rsp | Rbp
+data Register = Rax | Rbx | Rsp | Rbp | Rdi
 data VR = Value Int | Register Register
 
 data X86Instr = 
-           Popl VR
-         | Pushl VR
-         | Addl VR Register
-         | Subl VR Register
-         | Mull VR Register
-         | Divl VR Register
-         | Movl VR Register
-         | Leave | Ret
+           Pop VR
+         | Push_ VR
+         | Add VR Register
+         | Sub VR Register
+         | Mul_ VR Register
+         | Div_ VR Register
+         | Mov VR Register
+         | Inter
+         | Leave | Ret | Syscall
          | Label String
 
 type X86 = [X86Instr]
 
 compileExprToX86 :: Expr -> X86
 compileExprToX86 = foldExpr (simple, oper)
-  where simple v = [Pushl $ Value v]
-        oper Plus = o Addl
-        oper Min = o Subl
-        oper Mul = o Mull
-        oper Div = o Divl
-        o instr e1 e2 = e1 ++ e2 ++ [Popl (Register Ebx), Popl (Register Eax), 
-                                    instr (Register Ebx) Eax, Pushl (Register Eax)]
+  where simple v = [Push_ $ Value v]
+        oper Plus = o Add
+        oper Min = o Sub
+        oper Mul = o Mul_
+        oper Div = o Div_
+        o instr e1 e2 = e1 ++ e2 ++ [Pop (Register Rbx), Pop (Register Rax), 
+                                    instr (Register Rbx) Rax, Push_ (Register Rax)]
 
 wrapInMainFunction :: X86 -> X86
 wrapInMainFunction x86 = [
-    Label "main", 
-    Pushl (Register Ebp), 
-    Movl (Register Esp) Ebp
-    ] ++ x86 ++ [Leave, Ret]
+    Label "_start", 
+    Push_ (Register Rbp), 
+    Mov (Register Rsp) Rbp
+    ] ++ x86 ++ [Pop (Register Rdi), Mov (Value 60) Rax, Syscall]
 
 compileExprToX86String :: Expr -> String 
 compileExprToX86String = (".text\n" ++) . printX86 . wrapInMainFunction . compileExprToX86 
@@ -215,13 +216,14 @@ printX86 :: [X86Instr] -> String
 printX86 = unlines . map p
   where p Leave = "  leave"
         p Ret   = "  ret"
-        p (Popl vr) = "  pop " ++ printVR vr
-        p (Pushl vr) = "  push " ++ printVR vr
-        p (Addl vr r) = "  add " ++ printVR vr ++ ", " ++ printReg r
-        p (Subl vr r) = "  sub " ++ printVR vr ++ ", " ++ printReg r
-        p (Divl vr r) = "  div " ++ printVR vr ++ ", " ++ printReg r
-        p (Mull vr r) = "  imul " ++ printVR vr ++ ", " ++ printReg r
-        p (Movl vr r) = "  mov " ++ printVR vr ++ ", " ++ printReg r
+        p Syscall = "  syscall"
+        p (Pop vr) = "  pop " ++ printVR vr
+        p (Push_ vr) = "  push " ++ printVR vr
+        p (Add vr r) = "  add " ++ printVR vr ++ ", " ++ printReg r
+        p (Sub vr r) = "  sub " ++ printVR vr ++ ", " ++ printReg r
+        p (Mul_ vr r) = "  imul " ++ printVR vr ++ ", " ++ printReg r
+        p (Div_ vr r) = "  idiv " ++ printVR vr ++ ", " ++ printReg r
+        p (Mov vr r) = "  mov " ++ printVR vr ++ ", " ++ printReg r
         p (Label l) = ".globl " ++ l ++ "\n" ++ l ++ ":"
 
 printVR :: VR -> String
@@ -233,6 +235,7 @@ printReg Rax = "%rax"
 printReg Rbx = "%rbx"
 printReg Rbp = "%rbp"
 printReg Rsp = "%rsp"
+printReg Rdi = "%rdi"
 
 
 -- Compile string to an executable using gcc.
@@ -242,7 +245,7 @@ compileString s = maybe (error "Invalid expression") id (compileExprToX86String 
 
 compile :: String -> IO ()
 compile s = do writeFile "expr.s" $ compileString s
-               h <- runCommand "gcc ./expr.s -o expr"
+               h <- runCommand "gcc ./expr.s -nostartfiles -nostdlib -o expr"
                exit <- waitForProcess h
                putStrLn $ "gcc exited with code " ++ show exit
 
