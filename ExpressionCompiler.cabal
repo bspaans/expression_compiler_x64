@@ -1,0 +1,14 @@
+Name: ExpressionCompiler
+Version: 0.1
+Description: Expression Compiler
+Author: Bart Spaans
+Maintainer: bart.spaans@gmail.com
+Build-Type: Simple
+Cabal-Version: >= 1.2
+
+
+Executable expr2x86
+  Main-is: Main.hs
+  Build-Depends: base >= 3 && < 5, process == 1.1.0.1
+  HS-Source-Dirs: src
+

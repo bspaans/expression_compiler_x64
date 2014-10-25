@@ -8,7 +8,7 @@ import Control.Applicative
 import Control.Monad
 import Data.Char
 import Data.List (intercalate)
-import System (getArgs)
+import System.Environment (getArgs)
 import System.IO
 import System.Process
 
