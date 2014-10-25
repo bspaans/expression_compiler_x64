@@ -187,32 +187,42 @@ data X86Instr =
          | Divl VR Register
          | Movl VR Register
          | Leave | Ret
-	 | Label String
+         | Label String
 
-compileExprToX86 :: Expr -> String 
-compileExprToX86 expr = ".text\n" ++ (printX86 $ [Label "main", Pushl (Register Ebp), 
-                                    Movl (Register Esp) Ebp] ++ compiled ++ [Leave, Ret])
+type X86 = [X86Instr]
+
+compileExprToX86 :: Expr -> X86
+compileExprToX86 = foldExpr (simple, oper)
   where simple v = [Pushl $ Value v]
         oper Plus = o Addl
         oper Min = o Subl
         oper Mul = o Mull
         oper Div = o Divl
         o instr e1 e2 = e1 ++ e2 ++ [Popl (Register Ebx), Popl (Register Eax), 
-	                             instr (Register Ebx) Eax, Pushl (Register Eax)]
-	compiled = foldExpr (simple, oper) expr
+                                    instr (Register Ebx) Eax, Pushl (Register Eax)]
+
+wrapInMainFunction :: X86 -> X86
+wrapInMainFunction x86 = [
+    Label "main", 
+    Pushl (Register Ebp), 
+    Movl (Register Esp) Ebp
+    ] ++ x86 ++ [Leave, Ret]
+
+compileExprToX86String :: Expr -> String 
+compileExprToX86String = (".text\n" ++) . printX86 . wrapInMainFunction . compileExprToX86 
 
 printX86 :: [X86Instr] -> String
 printX86 = unlines . map p
   where p Leave = "  leave"
         p Ret   = "  ret"
-	p (Popl vr) = "  pop " ++ printVR vr
-	p (Pushl vr) = "  push " ++ printVR vr
-	p (Addl vr r) = "  addl " ++ printVR vr ++ ", " ++ printReg r
-	p (Subl vr r) = "  subl " ++ printVR vr ++ ", " ++ printReg r
-	p (Divl vr r) = "  divl " ++ printVR vr ++ ", " ++ printReg r
-	p (Mull vr r) = "  imull " ++ printVR vr ++ ", " ++ printReg r
+        p (Popl vr) = "  pop " ++ printVR vr
+        p (Pushl vr) = "  push " ++ printVR vr
+        p (Addl vr r) = "  addl " ++ printVR vr ++ ", " ++ printReg r
+        p (Subl vr r) = "  subl " ++ printVR vr ++ ", " ++ printReg r
+        p (Divl vr r) = "  divl " ++ printVR vr ++ ", " ++ printReg r
+        p (Mull vr r) = "  imull " ++ printVR vr ++ ", " ++ printReg r
         p (Movl vr r) = "  movl " ++ printVR vr ++ ", " ++ printReg r
-	p (Label l) = ".globl " ++ l ++ "\n" ++ l ++ ":"
+        p (Label l) = ".globl " ++ l ++ "\n" ++ l ++ ":"
 
 printVR :: VR -> String
 printVR (Value v) = "$" ++ show v
@@ -228,7 +238,7 @@ printReg Esp = "%esp"
 -- Compile string to an executable using gcc.
 --
 compileString :: String -> String
-compileString s = maybe (error "Invalid expression") id (compileExprToX86 <$> parseExpr s)
+compileString s = maybe (error "Invalid expression") id (compileExprToX86String <$> parseExpr s)
 
 compile :: String -> IO ()
 compile s = do writeFile "expr.s" $ compileString s
