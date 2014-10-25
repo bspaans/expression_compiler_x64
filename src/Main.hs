@@ -175,7 +175,7 @@ test s = (runInstr . compileExpr <$> p) == (evalExpr <$> p)
 
 -- | Compiling to X86
 --
-data Register = Eax | Ebx | Esp | Ebp
+data Register = Rax | Rbx | Rsp | Rbp
 data VR = Value Int | Register Register
 
 data X86Instr = 
@@ -217,11 +217,11 @@ printX86 = unlines . map p
         p Ret   = "  ret"
         p (Popl vr) = "  pop " ++ printVR vr
         p (Pushl vr) = "  push " ++ printVR vr
-        p (Addl vr r) = "  addl " ++ printVR vr ++ ", " ++ printReg r
-        p (Subl vr r) = "  subl " ++ printVR vr ++ ", " ++ printReg r
-        p (Divl vr r) = "  divl " ++ printVR vr ++ ", " ++ printReg r
-        p (Mull vr r) = "  imull " ++ printVR vr ++ ", " ++ printReg r
-        p (Movl vr r) = "  movl " ++ printVR vr ++ ", " ++ printReg r
+        p (Addl vr r) = "  add " ++ printVR vr ++ ", " ++ printReg r
+        p (Subl vr r) = "  sub " ++ printVR vr ++ ", " ++ printReg r
+        p (Divl vr r) = "  div " ++ printVR vr ++ ", " ++ printReg r
+        p (Mull vr r) = "  imul " ++ printVR vr ++ ", " ++ printReg r
+        p (Movl vr r) = "  mov " ++ printVR vr ++ ", " ++ printReg r
         p (Label l) = ".globl " ++ l ++ "\n" ++ l ++ ":"
 
 printVR :: VR -> String
@@ -229,10 +229,10 @@ printVR (Value v) = "$" ++ show v
 printVR (Register r) = printReg r
 
 printReg :: Register -> String 
-printReg Eax = "%eax"
-printReg Ebx = "%ebx"
-printReg Ebp = "%ebp"
-printReg Esp = "%esp"
+printReg Rax = "%rax"
+printReg Rbx = "%rbx"
+printReg Rbp = "%rbp"
+printReg Rsp = "%rsp"
 
 
 -- Compile string to an executable using gcc.
